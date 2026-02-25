@@ -5,6 +5,8 @@ import { BordereauView } from './components/BordereauView';
 import { SettingsView } from './components/SettingsView';
 import { Dashboard } from './components/Dashboard';
 import { BTPDocument, ApprovalStatus } from './types';
+import { fetchDocumentsFromSheet, saveDocumentsToSheet } from './services/googleSheetService';
+import { Loader2 } from 'lucide-react';
 
 const INITIAL_DOCS: BTPDocument[] = [
   {
@@ -77,20 +79,92 @@ const INITIAL_DOCS: BTPDocument[] = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview'); // Default to overview (Dashboard)
-  // State to pass filter from Dashboard to DocumentList
   const [initialDocFilter, setInitialDocFilter] = useState<ApprovalStatus | 'ALL'>('ALL');
-
-  // Shared State for Bordereau Selection
   const [bordereauSelectedDocs, setBordereauSelectedDocs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
-  const [documents, setDocuments] = useState<BTPDocument[]>(() => {
-    const saved = localStorage.getItem('btp-docs');
-    return saved ? JSON.parse(saved) : INITIAL_DOCS;
-  });
+  const [documents, setDocuments] = useState<BTPDocument[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // 1. Initial Load: Try Sheet first, merge with LocalStorage to keep files
   useEffect(() => {
+      const initData = async () => {
+          setLoading(true);
+          
+          try {
+              // Fetch Cloud Data (Metadata mostly)
+              const sheetDocs = await fetchDocumentsFromSheet();
+              
+              // Fetch Local Data (Contains Files)
+              const localSaved = localStorage.getItem('btp-docs');
+              const localDocs: BTPDocument[] = localSaved ? JSON.parse(localSaved) : [];
+
+              if (sheetDocs && sheetDocs.length > 0) {
+                  // Merge Strategy:
+                  // Use Sheet docs as the master list (for rows/status), 
+                  // but inject files from LocalStorage if IDs match.
+                  const mergedDocs = sheetDocs.map(sDoc => {
+                      const lDoc = localDocs.find(l => l.id === sDoc.id);
+                      if (lDoc) {
+                          // Restore files from local version to cloud version
+                          const mergedRevisions = sDoc.revisions.map(sRev => {
+                              const lRev = lDoc.revisions.find(r => r.id === sRev.id);
+                              if (lRev) {
+                                  return {
+                                      ...sRev,
+                                      transmittalFiles: (sRev.transmittalFiles && sRev.transmittalFiles.length > 0) ? sRev.transmittalFiles : lRev.transmittalFiles,
+                                      observationFiles: (sRev.observationFiles && sRev.observationFiles.length > 0) ? sRev.observationFiles : lRev.observationFiles
+                                  };
+                              }
+                              return sRev;
+                          });
+                          return { ...sDoc, revisions: mergedRevisions };
+                      }
+                      return sDoc;
+                  });
+                  setDocuments(mergedDocs);
+              } else if (localDocs.length > 0) {
+                  setDocuments(localDocs);
+              } else {
+                  setDocuments(INITIAL_DOCS);
+              }
+          } catch (e) {
+              console.error("Init Error", e);
+              // Fallback
+              const localSaved = localStorage.getItem('btp-docs');
+              setDocuments(localSaved ? JSON.parse(localSaved) : INITIAL_DOCS);
+          } finally {
+              setLoading(false);
+              setIsInitialized(true);
+          }
+      };
+
+      initData();
+  }, []);
+
+  // 2. Sync Effect: Update LocalStorage AND Google Sheet on changes
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    // Save Local (Full data with files)
     localStorage.setItem('btp-docs', JSON.stringify(documents));
-  }, [documents]);
+
+    // Save Remote (Debounced, metadata only stripped in service)
+    const syncToSheet = async () => {
+        setSyncing(true);
+        await saveDocumentsToSheet(documents);
+        setSyncing(false);
+    };
+
+    const timeoutId = setTimeout(() => {
+        syncToSheet();
+    }, 2000);
+
+    return () => clearTimeout(timeoutId);
+
+  }, [documents, isInitialized]);
+
 
   const addDocument = (doc: BTPDocument) => {
     setDocuments(prev => [...prev, doc]);
@@ -102,7 +176,6 @@ export default function App() {
 
   const deleteDocument = (id: string) => {
     setDocuments(prev => prev.filter(d => d.id !== id));
-    // Also remove from selection if deleted
     setBordereauSelectedDocs(prev => prev.filter(docId => docId !== id));
   };
 
@@ -111,7 +184,6 @@ export default function App() {
       setActiveTab('documents');
   };
 
-  // Function to add a doc to bordereau selection and navigate there
   const handleAddToBordereau = (docId: string) => {
       if (!bordereauSelectedDocs.includes(docId)) {
           setBordereauSelectedDocs(prev => [...prev, docId]);
@@ -149,8 +221,23 @@ export default function App() {
     }
   };
 
+  if (loading) {
+      return (
+          <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50 text-gray-500 gap-4">
+              <Loader2 className="animate-spin text-blue-600" size={48} />
+              <p>Chargement et Synchronisation SBF...</p>
+          </div>
+      );
+  }
+
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
+      {syncing && (
+          <div className="fixed bottom-4 right-4 bg-white/90 shadow-lg border border-blue-100 rounded-full px-4 py-2 flex items-center gap-2 text-xs font-medium text-blue-600 z-50 animate-pulse">
+              <Loader2 className="animate-spin" size={12} />
+              Sauvegarde Cloud...
+          </div>
+      )}
       {renderContent()}
     </Layout>
   );

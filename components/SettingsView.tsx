@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Building, FileText, MapPin, Phone, Upload, Image as ImageIcon, Trash2, Check, Users, Plus, X } from 'lucide-react';
+import { Save, Building, FileText, MapPin, Phone, Upload, Image as ImageIcon, Trash2, Check, Users, Plus, X, Database, Link, AlertTriangle, Play, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { Logo } from './Logo';
+import { testGoogleSheetConnection } from '../services/googleSheetService';
 
 interface Stakeholder {
     name: string;
@@ -16,6 +17,7 @@ interface AppSettings {
     contact: string;
     defaultValidator: string;
     logo: string;
+    googleScriptUrl: string; // New field
     stakeholders: {
         client: Stakeholder;
         consultant: Stakeholder;
@@ -33,12 +35,16 @@ export const SettingsView: React.FC = () => {
     contact: 'Tél. : 70 557 900 - Fax : 70 557 999',
     defaultValidator: 'Bureau de Contrôle',
     logo: '',
+    googleScriptUrl: '',
     stakeholders: {
         client: { name: 'Maître d\'Ouvrage', contacts: ['M. Le Directeur Technique'] },
         consultant: { name: 'Bureau d\'Études Structure', contacts: ['M. L\'Ingénieur Conseil'] },
         control: { name: 'Bureau de Contrôle', contacts: ['M. Le Contrôleur Technique'] }
     }
   });
+
+  // Connection Test State
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
   // Temp state for adding new contacts
   const [newContacts, setNewContacts] = useState({ client: '', consultant: '', control: '' });
@@ -59,6 +65,22 @@ export const SettingsView: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSettings({ ...settings, [e.target.name]: e.target.value });
+    // Reset test status if URL changes
+    if (e.target.name === 'googleScriptUrl') setTestStatus('idle');
+  };
+
+  const handleTestConnection = async () => {
+      if (!settings.googleScriptUrl) return;
+      
+      // Basic validation
+      if (!settings.googleScriptUrl.includes('/exec')) {
+          alert("L'URL semble incorrecte. Elle doit se terminer par '/exec' et non '/edit'.");
+          return;
+      }
+
+      setTestStatus('testing');
+      const success = await testGoogleSheetConnection(settings.googleScriptUrl);
+      setTestStatus(success ? 'success' : 'error');
   };
 
   const handleStakeholderNameChange = (type: 'client' | 'consultant' | 'control', value: string) => {
@@ -177,6 +199,62 @@ export const SettingsView: React.FC = () => {
         </div>
         
         <div className="p-8 space-y-8">
+
+            {/* Section Google Sheet */}
+            <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-xl">
+                <h3 className="text-lg font-semibold text-emerald-800 flex items-center gap-2 mb-4">
+                    <Database size={20} />
+                    Base de Données Google Sheets
+                </h3>
+                
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-emerald-900 mb-1">URL de l'API Google Apps Script</label>
+                        <div className="flex gap-2">
+                            <Link className="text-emerald-500 shrink-0 mt-2.5" size={16} />
+                            <input 
+                                name="googleScriptUrl" 
+                                value={settings.googleScriptUrl} 
+                                onChange={handleChange} 
+                                placeholder="https://script.google.com/macros/s/.../exec"
+                                className="w-full p-2 border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm" 
+                            />
+                        </div>
+                        <p className="text-xs text-emerald-600 mt-2">
+                            Assurez-vous que l'URL se termine par <b>/exec</b> et que le déploiement est en <b>accès public</b> (Anyone).
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={handleTestConnection}
+                            disabled={!settings.googleScriptUrl || testStatus === 'testing'}
+                            className={`px-4 py-2 rounded text-sm font-bold flex items-center gap-2 transition-colors ${
+                                testStatus === 'success' ? 'bg-green-600 text-white' : 
+                                testStatus === 'error' ? 'bg-red-600 text-white' : 
+                                'bg-emerald-600 text-white hover:bg-emerald-700'
+                            }`}
+                        >
+                            {testStatus === 'testing' ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
+                            {testStatus === 'success' ? 'Connexion Réussie !' : testStatus === 'error' ? 'Échec Connexion' : 'Tester la Connexion'}
+                        </button>
+                        
+                        {testStatus === 'success' && <span className="text-green-600 flex items-center gap-1 text-sm"><CheckCircle2 size={16}/> Synchronisation OK</span>}
+                        {testStatus === 'error' && <span className="text-red-600 flex items-center gap-1 text-sm"><XCircle size={16}/> Vérifiez l'URL ou les droits</span>}
+                    </div>
+
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                        <div className="flex items-start gap-2">
+                            <AlertTriangle className="text-yellow-500 shrink-0 mt-0.5" size={16} />
+                            <div className="text-xs text-yellow-800">
+                                <p className="font-bold mb-1">Limitation Technique :</p>
+                                <p>Les fichiers joints (PDF/Images) ne sont pas envoyés vers Google Sheets car ils dépassent la limite de taille des cellules.</p>
+                                <p className="mt-1">Seules les métadonnées (Noms, Codes, Dates, Statuts) sont synchronisées.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             
             {/* Section Logo */}
             <div className="space-y-4">
