@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, Filter, Download, Clock, Edit2, Save, X, Loader2, FileSpreadsheet, ChevronUp, ChevronDown, ArrowUpDown, Bell, BellRing, Calendar, Send, Trash2, AlertTriangle, UploadCloud, FileText, Search, Mic, MicOff, ListPlus, Paperclip, File as FileIcon } from 'lucide-react';
 import { BTPDocument, ApprovalStatus, Revision } from '../types';
 import { Logo } from './Logo';
-import XLSX from 'xlsx';
+import * as XLSX from 'xlsx';
 
 interface DocumentListProps {
   documents: BTPDocument[];
@@ -11,6 +11,7 @@ interface DocumentListProps {
   onDeleteDocument: (id: string) => void;
   onNavigateToBordereau?: () => void;
   onAddToBordereau: (docId: string) => void;
+  initialFilter?: ApprovalStatus | 'ALL';
 }
 
 type SortKey = 'lot' | 'classement' | 'poste' | 'name' | 'code' | 'index' | 'transmittalDate' | 'transmittalRef' | 'observationDate' | 'observationRef' | 'status' | 'approvalDate' | 'returnDate';
@@ -31,8 +32,8 @@ declare global {
   }
 }
 
-export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocument, onUpdateDocument, onDeleteDocument, onNavigateToBordereau, onAddToBordereau }) => {
-  const [filter, setFilter] = useState<ApprovalStatus | 'ALL'>('ALL');
+export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocument, onUpdateDocument, onDeleteDocument, onNavigateToBordereau, onAddToBordereau, initialFilter }) => {
+  const [filter, setFilter] = useState<ApprovalStatus | 'ALL'>(initialFilter || 'ALL');
   const [searchQuery, setSearchQuery] = useState(''); // State pour la recherche textuelle
   const [isListening, setIsListening] = useState(false); // State pour le micro
 
@@ -76,6 +77,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
         setAppSettings(prev => ({ ...prev, ...parsed }));
     }
   };
+
+  useEffect(() => {
+    if (initialFilter) {
+        setFilter(initialFilter);
+    }
+  }, [initialFilter]);
 
   useEffect(() => {
     loadSettings();
@@ -146,7 +153,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
 
 
   // 1. APLATIR LA STRUCTURE (Flatten)
-  const allRows: FlatRow[] = React.useMemo(() => {
+  const allRows: FlatRow[] = useMemo(() => {
       const rows: FlatRow[] = [];
       documents.forEach(doc => {
           doc.revisions.forEach((rev, idx) => {
@@ -177,7 +184,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
   });
 
   // 3. TRIER (SORT)
-  const sortedRows = React.useMemo(() => {
+  const sortedRows = useMemo(() => {
     let sortableItems = [...filteredRows];
     
     // Default Sort: Code ASC, then Index ASC
@@ -187,7 +194,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
             if (a.doc.code > b.doc.code) return 1;
             // Same code, sort by index
             if (a.rev.index < b.rev.index) return -1;
-            if (a.rev.index > b.rev.index) return -1;
+            if (a.rev.index > b.rev.index) return 1;
             return 0;
         });
         return sortableItems;
@@ -225,7 +232,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
       }
       return 0;
     });
-    
     return sortableItems;
   }, [filteredRows, sortConfig]);
 
@@ -259,6 +265,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
     );
   };
 
+  // ... (Reset Form, etc.)
   const resetForm = () => {
     setEditingDocId(null);
     setEditingRevId(null);
@@ -284,33 +291,25 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
 
   const handleEditClick = (doc: BTPDocument, rev: Revision, e: React.MouseEvent) => {
       e.stopPropagation(); 
-      
       setEditingDocId(doc.id);
       setEditingRevId(rev.id);
-      
-      // Remplir le formulaire
       setNewLot(doc.lot);
       setNewCl(doc.classement);
       setNewPoste(doc.poste);
       setNewCode(doc.code);
       setNewName(doc.name);
-      
       setNewIndex(rev.index);
       setNewTransmittalDate(rev.transmittalDate);
       setNewTransmittalRef(rev.transmittalRef);
-      // Compatibility with old string version vs new array version
       // @ts-ignore
       const tFiles = rev.transmittalFiles || (rev.transmittalFile ? [rev.transmittalFile] : []);
       setNewTransmittalFiles(tFiles);
-
       setNewObservationDate(rev.observationDate || '');
       setNewObservationRef(rev.observationRef || '');
       // @ts-ignore
       const oFiles = rev.observationFiles || (rev.observationFile ? [rev.observationFile] : []);
       setNewObservationFiles(oFiles);
-
       setNewStatus(rev.status);
-
       setIsModalOpen(true);
   };
 
@@ -339,25 +338,20 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     let docToSave: BTPDocument | null = null;
 
     if (editingDocId && editingRevId) {
-        // --- MODE ÉDITION (Ligne existante) ---
         const docToUpdate = documents.find(d => d.id === editingDocId);
         if (!docToUpdate) return;
-
         const updatedDoc: BTPDocument = { ...docToUpdate };
         updatedDoc.lot = newLot;
         updatedDoc.classement = newCl;
         updatedDoc.poste = newPoste;
         updatedDoc.code = newCode;
         updatedDoc.name = newName;
-
         let updatedRevs = [...updatedDoc.revisions];
         const targetRevIdx = updatedRevs.findIndex(r => r.id === editingRevId);
         if (targetRevIdx === -1) return;
-
         updatedRevs[targetRevIdx] = {
             ...updatedRevs[targetRevIdx],
             index: newIndex,
@@ -369,7 +363,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
             observationFiles: newObservationFiles,
             status: newStatus 
         };
-
         if (
              newStatus === ApprovalStatus.APPROVED || 
              newStatus === ApprovalStatus.APPROVED_WITH_COMMENTS ||
@@ -388,7 +381,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
                  const charCode = newIndex.charCodeAt(0);
                  nextIndex = String.fromCharCode(charCode + 1);
              }
- 
              const newRev: Revision = {
                id: crypto.randomUUID(),
                index: nextIndex,
@@ -400,16 +392,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
                transmittalFiles: [],
                observationFiles: []
              };
- 
              updatedRevs.push(newRev);
              updatedDoc.currentRevisionIndex = updatedRevs.length - 1;
         }
-
         updatedDoc.revisions = updatedRevs;
         docToSave = updatedDoc;
-
     } else {
-        // --- MODE CRÉATION (Nouveau Document) ---
         const finalRef = newTransmittalRef || `B-${String(documents.length + 1).padStart(3, '0')}`;
         docToSave = {
             id: crypto.randomUUID(),
@@ -432,15 +420,12 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
             ]
         };
     }
-
     if (!docToSave) return;
-
     if (editingDocId) {
         onUpdateDocument(docToSave);
     } else {
         onAddDocument(docToSave);
     }
-    
     closeAllModals();
   };
 
@@ -449,7 +434,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
       resetForm();
   };
 
-  // Reminder Logic
   const openReminderModal = (docId: string, revId: string, currentConfig?: any) => {
       setReminderModal({ docId, revId });
       if (currentConfig) {
@@ -463,14 +447,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
       if (!reminderModal) return;
       const doc = documents.find(d => d.id === reminderModal.docId);
       if (!doc) return;
-
       const updatedDoc = { ...doc };
       const revIndex = updatedDoc.revisions.findIndex(r => r.id === reminderModal.revId);
       if (revIndex === -1) return;
-
       const nextDate = new Date();
       nextDate.setDate(nextDate.getDate() + reminderForm.frequencyDays);
-
       updatedDoc.revisions[revIndex] = {
           ...updatedDoc.revisions[revIndex],
           reminder: {
@@ -479,12 +460,10 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
               nextReminderDate: reminderForm.active ? nextDate.toISOString().slice(0, 10) : undefined
           }
       };
-
       onUpdateDocument(updatedDoc);
       setReminderModal(null);
   };
 
-  // File Upload Logic (Directly from Table)
   const triggerFileUpload = (docId: string, revId: string, type: 'transmittal' | 'observation') => {
       setUploadTarget({ docId, revId, type });
       setTimeout(() => {
@@ -495,7 +474,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file || !uploadTarget) return;
-
       const reader = new FileReader();
       reader.onloadend = () => {
           const fileDataUrl = reader.result as string;
@@ -505,7 +483,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
               const revIdx = updatedDoc.revisions.findIndex(r => r.id === uploadTarget.revId);
               if (revIdx !== -1) {
                   if (uploadTarget.type === 'transmittal') {
-                      // Append max 3
                       const currentFiles = updatedDoc.revisions[revIdx].transmittalFiles || [];
                       if (currentFiles.length >= 3) {
                           alert("Maximum 3 bordereaux autorisés.");
@@ -525,12 +502,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
               }
           }
           setUploadTarget(null);
-          e.target.value = ''; // Reset input
+          e.target.value = '';
       };
       reader.readAsDataURL(file);
   };
 
-  // Handler for Modal File Uploads
   const handleModalFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'transmittal' | 'observation') => {
       const file = e.target.files?.[0];
       if (!file) return;
@@ -576,52 +552,35 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
 
   const handleExportPDF = () => {
     const element = document.getElementById('document-table-container');
-    // Get headers to modify colspan
-    const thTransmis = document.getElementById('th-transmis');
-    const thVisa = document.getElementById('th-visa');
-    
     if (!element) return;
 
+    // Trigger state change to re-render table without unwanted columns and with proper colspan
     setIsExportingPdf(true);
-    // Apply PDF styling class
-    element.classList.add('pdf-mode');
-    
-    // Adjust ColSpans for PDF (3 -> 2 because we hide the file columns)
-    if (thTransmis) thTransmis.setAttribute('colSpan', '2');
-    if (thVisa) thVisa.setAttribute('colSpan', '2');
 
-    const opt = {
-      margin: 5,
-      filename: `Suivi_Documents_${new Date().toISOString().split('T')[0]}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
-    };
+    // Give React a moment to re-render before capturing
+    setTimeout(() => {
+        const opt = {
+          margin: 5,
+          filename: `Suivi_Documents_${new Date().toISOString().split('T')[0]}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, windowWidth: 1600 },
+          jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
+        };
 
-    // @ts-ignore
-    if (window.html2pdf) {
-      // @ts-ignore
-      window.html2pdf().set(opt).from(element).save().then(() => {
-        setIsExportingPdf(false);
-        element.classList.remove('pdf-mode');
-        // Revert ColSpans
-        if (thTransmis) thTransmis.setAttribute('colSpan', '3');
-        if (thVisa) thVisa.setAttribute('colSpan', '3');
-      }).catch((err: any) => {
-        console.error(err);
-        setIsExportingPdf(false);
-        element.classList.remove('pdf-mode');
-        // Revert ColSpans
-        if (thTransmis) thTransmis.setAttribute('colSpan', '3');
-        if (thVisa) thVisa.setAttribute('colSpan', '3');
-      });
-    } else {
-      alert("Erreur: Librairie PDF non chargée");
-      setIsExportingPdf(false);
-      element.classList.remove('pdf-mode');
-      if (thTransmis) thTransmis.setAttribute('colSpan', '3');
-      if (thVisa) thVisa.setAttribute('colSpan', '3');
-    }
+        // @ts-ignore
+        if (window.html2pdf) {
+          // @ts-ignore
+          window.html2pdf().set(opt).from(element).save().then(() => {
+            setIsExportingPdf(false);
+          }).catch((err: any) => {
+            console.error(err);
+            setIsExportingPdf(false);
+          });
+        } else {
+          alert("Erreur: Librairie PDF non chargée");
+          setIsExportingPdf(false);
+        }
+    }, 500);
   };
 
   const handleExportExcel = () => {
@@ -632,25 +591,17 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
             return;
         }
 
-        // --- Custom Header Construction ---
-        // Rows 0-4 are reserved for the header
-        
-        // Define styles
         const borderStyle = { top: { style: "thin", color: { rgb: "000000" } }, bottom: { style: "thin", color: { rgb: "000000" } }, left: { style: "thin", color: { rgb: "000000" } }, right: { style: "thin", color: { rgb: "000000" } } };
-        const centerStyle = { alignment: { horizontal: "center", vertical: "center", wrapText: true }, font: { bold: true } };
         const titleStyle = { alignment: { horizontal: "center", vertical: "center" }, font: { bold: true, sz: 16 } };
         const subtitleStyle = { alignment: { horizontal: "center", vertical: "center" }, font: { bold: false, sz: 11, color: { rgb: "555555" } } };
         
-        // Initial Empty Rows for Header
-        // IMPORTANT: Removed File Columns from Excel Data
         const ws_data: any[][] = [
             ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
             ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
             ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
             ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
             ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
-            [""], // Spacer
-            // Table Header - Files columns removed
+            [""], 
             ["N°", "Lot", "Poste", "Type", "CODE", "Indice", "Désignation Document", "Transmis par SBF", "", "Note d'observation", "", "Statut", "Date d'envoi pour visa", "Date de retour"],
             ["", "", "", "", "", "", "", "Date Envoi", "Réf Envoi", "Date Rép.", "Réf Rép.", "", "", ""]
         ];
@@ -666,10 +617,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
             row.doc.name,
             row.rev.transmittalDate,
             row.rev.transmittalRef,
-            // Removed File Count Column
             row.rev.observationDate || '',
             row.rev.observationRef || '',
-            // Removed File Count Column
             getStatusText(row.rev.status),
             row.rev.approvalDate || '',
             row.rev.returnDate || ''
@@ -678,37 +627,24 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
 
         const ws = XLSX.utils.aoa_to_sheet(ws_data);
         
-        // --- HEADER CONTENT & STYLES ---
-        
-        // 1. Logo Text (Left: A1:C5)
         ws['A3'] = { v: appSettings.companyName.toUpperCase(), t: 's', s: { font: { bold: true }, alignment: { horizontal: "center", vertical: "center" } } };
-
-        // 2. Title Center (Center: D1:J5) - Adjusted range because columns removed
         ws['D2'] = { v: "TABLEAU DE SUIVI DES DOCUMENTS", t: 's', s: titleStyle };
         ws['D3'] = { v: `PROJET : ${appSettings.projectName} (${appSettings.projectCode})`, t: 's', s: subtitleStyle };
         ws['D4'] = { v: `Date d'édition : ${new Date().toLocaleDateString()}`, t: 's', s: subtitleStyle };
-
-        // 3. Empty Box (Right: K1:N5) - Adjusted range
         ws['K3'] = { v: "Validation / Cachet", t: 's', s: { font: { italic: true, color: { rgb: "AAAAAA" } }, alignment: { horizontal: "center", vertical: "center" } } };
 
-
-        // --- MERGES ---
         ws['!merges'] = [
-            // Header Merges (Adjusted for fewer columns)
-            { s: {r:0, c:0}, e: {r:4, c:2} },   // Left Box (Logo Area)
-            { s: {r:0, c:3}, e: {r:4, c:9} },   // Center Box (Title)
-            { s: {r:0, c:10}, e: {r:4, c:13} }, // Right Box (Empty)
-
-            // Table Header Merges
+            { s: {r:0, c:0}, e: {r:4, c:2} },   
+            { s: {r:0, c:3}, e: {r:4, c:9} },   
+            { s: {r:0, c:10}, e: {r:4, c:13} }, 
             { s: {r:6, c:0}, e: {r:7, c:0} }, { s: {r:6, c:1}, e: {r:7, c:1} }, { s: {r:6, c:2}, e: {r:7, c:2} }, { s: {r:6, c:3}, e: {r:7, c:3} }, { s: {r:6, c:4}, e: {r:7, c:4} }, { s: {r:6, c:5}, e: {r:7, c:5} }, { s: {r:6, c:6}, e: {r:7, c:6} },
-            { s: {r:6, c:7}, e: {r:6, c:8} }, // Transmis par SBF (2 cols)
-            { s: {r:6, c:9}, e: {r:6, c:10} }, // Note Obs (2 cols)
-            { s: {r:6, c:11}, e: {r:7, c:11} }, // Statut
-            { s: {r:6, c:12}, e: {r:7, c:12} }, // Date Envoi Visa
-            { s: {r:6, c:13}, e: {r:7, c:13} }, // Date Retour
+            { s: {r:6, c:7}, e: {r:6, c:8} }, 
+            { s: {r:6, c:9}, e: {r:6, c:10} }, 
+            { s: {r:6, c:11}, e: {r:7, c:11} }, 
+            { s: {r:6, c:12}, e: {r:7, c:12} }, 
+            { s: {r:6, c:13}, e: {r:7, c:13} }, 
         ];
 
-        // Apply Styles to Header Ranges to enforce borders
         const applyStyleToRange = (sR: number, eR: number, sC: number, eC: number, style: any) => {
             for(let r=sR; r<=eR; r++) {
                 for(let c=sC; c<=eC; c++) {
@@ -729,11 +665,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
         if(ws['D3']) ws['D3'].s = { ...headerBoxStyle, ...subtitleStyle };
         if(ws['D4']) ws['D4'].s = { ...headerBoxStyle, ...subtitleStyle };
 
-        // Table Header Styles
         const tableHeaderStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "374151" } }, alignment: { horizontal: "center", vertical: "center" }, border: borderStyle };
         applyStyleToRange(6, 7, 0, 13, tableHeaderStyle);
 
-        // Data Borders
         const dataRange = { s: {r: 8, c: 0}, e: {r: ws_data.length -1, c: 13} };
         for (let R = dataRange.s.r; R <= dataRange.e.r; ++R) {
              for (let C = dataRange.s.c; C <= dataRange.e.c; ++C) {
@@ -839,9 +773,10 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
 
       {/* --- TABLE --- */}
       <div className="flex-1 overflow-auto p-4">
-        <div id="document-table-container" className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden relative">
+        {/* Dynamic Class for PDF Mode: Forces white bg, no border, full visible overflow */}
+        <div id="document-table-container" className={`bg-white rounded-xl shadow border border-gray-200 overflow-hidden relative ${isExportingPdf ? 'pdf-mode' : ''}`}>
           
-          {/* --- PDF EXPORT HEADER (Improved Layout) --- */}
+          {/* --- PDF EXPORT HEADER (Visible only in PDF Mode via CSS) --- */}
           <div id="pdf-export-header" className="hidden flex-row border-4 border-slate-900 bg-white h-40">
               {/* Left: Logo */}
               <div className="w-[20%] border-r-2 border-slate-900 flex items-center justify-center p-4">
@@ -870,10 +805,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
               </div>
           </div>
 
-          {/* Spacer for PDF Export */}
           <div className="hidden pdf-spacer w-full h-8 bg-white"></div>
 
-          <div className="overflow-x-auto">
+          <div className={`overflow-x-auto ${isExportingPdf ? 'overflow-visible' : ''}`}>
             <table className="w-full text-sm text-left border-collapse">
               <thead className="bg-slate-800 text-white text-xs uppercase sticky top-0 z-10">
                 <tr>
@@ -885,20 +819,24 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
                   <SortHeader label="Indice" sortKey="index" className="w-16 text-center" rowSpan={2} />
                   <SortHeader label="Désignation Document" sortKey="name" className="min-w-[250px]" rowSpan={2} />
                   
-                  <th id="th-transmis" colSpan={3} className="px-2 py-1 border border-slate-600 text-center bg-slate-900 font-bold align-middle">Transmis par SBF</th>
-                  <th id="th-visa" colSpan={3} className="px-2 py-1 border border-slate-600 text-center bg-slate-900 font-bold align-middle">Retour Visa</th>
+                  {/* Dynamic ColSpan for PDF Export */}
+                  <th id="th-transmis" colSpan={isExportingPdf ? 2 : 3} className="px-2 py-1 border border-slate-600 text-center bg-slate-900 font-bold align-middle">Transmis par SBF</th>
+                  <th id="th-visa" colSpan={isExportingPdf ? 2 : 3} className="px-2 py-1 border border-slate-600 text-center bg-slate-900 font-bold align-middle">Retour Visa</th>
                   
                   <SortHeader label="Statut" sortKey="status" className="w-32 text-center" rowSpan={2} />
-                  <th className="px-2 py-2 border border-slate-600 text-center font-bold align-middle no-print" rowSpan={2}>Actions</th>
+                  {/* Hide Actions Column in PDF */}
+                  {!isExportingPdf && <th className="px-2 py-2 border border-slate-600 text-center font-bold align-middle no-print" rowSpan={2}>Actions</th>}
                 </tr>
                 <tr>
                   <SortHeader label="Date" sortKey="transmittalDate" className="w-24 bg-slate-800 text-center" />
                   <SortHeader label="Réf" sortKey="transmittalRef" className="w-24 bg-slate-800 text-center" />
-                  <th className="px-2 py-1 border border-slate-600 w-10 text-center align-middle no-print"><Paperclip size={12} className="mx-auto"/></th>
+                  {/* Conditionally Render File Icon Header */}
+                  {!isExportingPdf && <th className="px-2 py-1 border border-slate-600 w-10 text-center align-middle no-print"><Paperclip size={12} className="mx-auto"/></th>}
                   
                   <SortHeader label="Date" sortKey="observationDate" className="w-24 bg-slate-800 text-center" />
                   <SortHeader label="Réf" sortKey="observationRef" className="w-24 bg-slate-800 text-center" />
-                  <th className="px-2 py-1 border border-slate-600 w-10 text-center align-middle no-print"><Paperclip size={12} className="mx-auto"/></th>
+                   {/* Conditionally Render File Icon Header */}
+                  {!isExportingPdf && <th className="px-2 py-1 border border-slate-600 w-10 text-center align-middle no-print"><Paperclip size={12} className="mx-auto"/></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -909,7 +847,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
                     </td>
                   </tr>
                 ) : sortedRows.map(({ doc, rev, isLatest }, idx) => {
-                  // Compatibility check
                   // @ts-ignore
                   const tFiles = rev.transmittalFiles || (rev.transmittalFile ? [rev.transmittalFile] : []);
                   // @ts-ignore
@@ -931,30 +868,36 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
                       {/* Transmittal */}
                       <td className="px-2 py-3 text-center border border-gray-300 align-middle whitespace-nowrap">{rev.transmittalDate}</td>
                       <td className="px-2 py-3 text-center border border-gray-300 text-xs align-middle whitespace-nowrap">{rev.transmittalRef}</td>
-                      <td className="px-2 py-3 text-center border border-gray-300 align-middle no-print">
-                         {tFiles.length > 0 ? (
-                             <button onClick={() => openFile(tFiles[0])} className="text-blue-600 hover:text-blue-800 relative inline-flex justify-center items-center">
-                                 <FileText size={16} />
-                                 {tFiles.length > 1 && <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center">{tFiles.length}</span>}
-                             </button>
-                         ) : (
-                             isLatest && <button onClick={() => triggerFileUpload(doc.id, rev.id, 'transmittal')} className="text-gray-300 hover:text-blue-500 inline-flex justify-center items-center"><UploadCloud size={16}/></button>
-                         )}
-                      </td>
+                      
+                      {!isExportingPdf && (
+                        <td className="px-2 py-3 text-center border border-gray-300 align-middle no-print">
+                            {tFiles.length > 0 ? (
+                                <button onClick={() => openFile(tFiles[0])} className="text-blue-600 hover:text-blue-800 relative inline-flex justify-center items-center">
+                                    <FileText size={16} />
+                                    {tFiles.length > 1 && <span className="absolute -top-2 -right-2 bg-blue-600 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center">{tFiles.length}</span>}
+                                </button>
+                            ) : (
+                                isLatest && <button onClick={() => triggerFileUpload(doc.id, rev.id, 'transmittal')} className="text-gray-300 hover:text-blue-500 inline-flex justify-center items-center"><UploadCloud size={16}/></button>
+                            )}
+                        </td>
+                      )}
 
                       {/* Observation */}
                       <td className="px-2 py-3 text-center border border-gray-300 align-middle whitespace-nowrap">{rev.observationDate || '-'}</td>
                       <td className="px-2 py-3 text-center border border-gray-300 text-xs align-middle whitespace-nowrap">{rev.observationRef || '-'}</td>
-                      <td className="px-2 py-3 text-center border border-gray-300 align-middle no-print">
-                         {oFiles.length > 0 ? (
-                             <button onClick={() => openFile(oFiles[0])} className="text-amber-600 hover:text-amber-800 relative inline-flex justify-center items-center">
-                                 <FileText size={16} />
-                                 {oFiles.length > 1 && <span className="absolute -top-2 -right-2 bg-amber-600 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center">{oFiles.length}</span>}
-                             </button>
-                         ) : (
-                             isLatest && <button onClick={() => triggerFileUpload(doc.id, rev.id, 'observation')} className="text-gray-300 hover:text-amber-500 inline-flex justify-center items-center"><UploadCloud size={16}/></button>
-                         )}
-                      </td>
+                      
+                      {!isExportingPdf && (
+                        <td className="px-2 py-3 text-center border border-gray-300 align-middle no-print">
+                            {oFiles.length > 0 ? (
+                                <button onClick={() => openFile(oFiles[0])} className="text-amber-600 hover:text-amber-800 relative inline-flex justify-center items-center">
+                                    <FileText size={16} />
+                                    {oFiles.length > 1 && <span className="absolute -top-2 -right-2 bg-amber-600 text-white text-[8px] w-3 h-3 rounded-full flex items-center justify-center">{oFiles.length}</span>}
+                                </button>
+                            ) : (
+                                isLatest && <button onClick={() => triggerFileUpload(doc.id, rev.id, 'observation')} className="text-gray-300 hover:text-amber-500 inline-flex justify-center items-center"><UploadCloud size={16}/></button>
+                            )}
+                        </td>
+                      )}
                       
                       {/* Status */}
                       <td className="px-2 py-3 text-center border border-gray-300 align-middle">
@@ -978,43 +921,45 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
                       </td>
 
                       {/* Actions */}
-                      <td className="px-2 py-3 text-center border border-gray-300 align-middle no-print">
-                          <div className="flex items-center justify-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button 
-                                onClick={(e) => handleEditClick(doc, rev, e)} 
-                                className="p-1.5 text-blue-600 hover:bg-blue-100 rounded"
-                                title="Modifier"
-                              >
-                                  <Edit2 size={14} />
-                              </button>
-                              
-                              <button 
-                                onClick={() => openReminderModal(doc.id, rev.id, rev.reminder)}
-                                className={`p-1.5 rounded ${rev.reminder?.active ? 'text-amber-600 bg-amber-100' : 'text-gray-400 hover:bg-gray-100'}`}
-                                title="Rappel"
-                              >
-                                  <Bell size={14} />
-                              </button>
-
-                              <button 
-                                onClick={() => onAddToBordereau(doc.id)}
-                                className="p-1.5 text-purple-600 hover:bg-purple-100 rounded"
-                                title="Ajouter au Bordereau"
-                              >
-                                  <Send size={14} />
-                              </button>
-                              
-                              {isLatest && (
+                      {!isExportingPdf && (
+                        <td className="px-2 py-3 text-center border border-gray-300 align-middle no-print">
+                            <div className="flex items-center justify-center gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button 
-                                    onClick={(e) => handleDeleteClick(doc.id, e)} 
-                                    className="p-1.5 text-red-600 hover:bg-red-100 rounded"
-                                    title="Supprimer"
+                                    onClick={(e) => handleEditClick(doc, rev, e)} 
+                                    className="p-1.5 text-blue-600 hover:bg-blue-100 rounded"
+                                    title="Modifier"
                                 >
-                                    <Trash2 size={14} />
+                                    <Edit2 size={14} />
                                 </button>
-                              )}
-                          </div>
-                      </td>
+                                
+                                <button 
+                                    onClick={() => openReminderModal(doc.id, rev.id, rev.reminder)}
+                                    className={`p-1.5 rounded ${rev.reminder?.active ? 'text-amber-600 bg-amber-100' : 'text-gray-400 hover:bg-gray-100'}`}
+                                    title="Rappel"
+                                >
+                                    <Bell size={14} />
+                                </button>
+
+                                <button 
+                                    onClick={() => onAddToBordereau(doc.id)}
+                                    className="p-1.5 text-purple-600 hover:bg-purple-100 rounded"
+                                    title="Ajouter au Bordereau"
+                                >
+                                    <Send size={14} />
+                                </button>
+                                
+                                {isLatest && (
+                                    <button 
+                                        onClick={(e) => handleDeleteClick(doc.id, e)} 
+                                        className="p-1.5 text-red-600 hover:bg-red-100 rounded"
+                                        title="Supprimer"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                )}
+                            </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -1236,8 +1181,24 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
       <style>{`
         .pdf-mode #pdf-export-header { display: flex !important; }
         .pdf-mode .pdf-spacer { display: block !important; }
-        .pdf-mode .no-print { display: none !important; }
-        .pdf-mode { border: none !important; box-shadow: none !important; }
+        .pdf-mode { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 50;
+            background: white;
+            overflow: visible !important;
+            height: auto !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .pdf-mode table {
+             width: 100% !important;
+        }
+        .pdf-mode .overflow-x-auto {
+             overflow: visible !important;
+        }
       `}</style>
     </div>
   );

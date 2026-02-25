@@ -131,6 +131,7 @@ export default function App() {
             onDeleteDocument={deleteDocument}
             onNavigateToBordereau={() => setActiveTab('bordereaux')}
             onAddToBordereau={handleAddToBordereau}
+            initialFilter={initialDocFilter}
         />;
       case 'bordereaux':
         return <BordereauView 
