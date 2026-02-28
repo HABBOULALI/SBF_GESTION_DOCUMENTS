@@ -32,8 +32,8 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ isDarkMode, toggleTheme }) => {
   const [settings, setSettings] = useState<AppSettings>({
-    companyName: 'Société Bouzguenda Frères',
-    companySubtitle: 'Entreprise Générale de Bâtiments',
+    companyName: 'SOCIETE BOUZGUENDA FRERES',
+    companySubtitle: 'BATIMENTS ET TRAVAUX PUBLICS',
     projectCode: 'PRJ-2024-HZ',
     projectName: 'Construction Siège Horizon',
     address: '41 Rue 8600 ZI La Charguia 1. Tunis',
