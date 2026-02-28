@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, Building, FileText, MapPin, Phone, Upload, Image as ImageIcon, Trash2, Check, Users, Plus, X, Database, Link, AlertTriangle, Play, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Save, Building, FileText, MapPin, Phone, Upload, Image as ImageIcon, Trash2, Check, Users, Plus, X, Database, Link, AlertTriangle, Play, CheckCircle2, XCircle, Loader2, Moon, Sun } from 'lucide-react';
 import { Logo } from './Logo';
 import { testGoogleSheetConnection } from '../services/googleSheetService';
 
@@ -17,7 +17,7 @@ interface AppSettings {
     contact: string;
     defaultValidator: string;
     logo: string;
-    googleScriptUrl: string; // New field
+    googleScriptUrl: string;
     stakeholders: {
         client: Stakeholder;
         consultant: Stakeholder;
@@ -25,7 +25,12 @@ interface AppSettings {
     };
 }
 
-export const SettingsView: React.FC = () => {
+interface SettingsViewProps {
+    isDarkMode?: boolean;
+    toggleTheme?: () => void;
+}
+
+export const SettingsView: React.FC<SettingsViewProps> = ({ isDarkMode, toggleTheme }) => {
   const [settings, setSettings] = useState<AppSettings>({
     companyName: 'Société Bouzguenda Frères',
     companySubtitle: 'Entreprise Générale de Bâtiments',
@@ -43,12 +48,8 @@ export const SettingsView: React.FC = () => {
     }
   });
 
-  // Connection Test State
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-
-  // Temp state for adding new contacts
   const [newContacts, setNewContacts] = useState({ client: '', consultant: '', control: '' });
-
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -65,19 +66,15 @@ export const SettingsView: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSettings({ ...settings, [e.target.name]: e.target.value });
-    // Reset test status if URL changes
     if (e.target.name === 'googleScriptUrl') setTestStatus('idle');
   };
 
   const handleTestConnection = async () => {
       if (!settings.googleScriptUrl) return;
-      
-      // Basic validation
       if (!settings.googleScriptUrl.includes('/exec')) {
           alert("L'URL semble incorrecte. Elle doit se terminer par '/exec' et non '/edit'.");
           return;
       }
-
       setTestStatus('testing');
       const success = await testGoogleSheetConnection(settings.googleScriptUrl);
       setTestStatus(success ? 'success' : 'error');
@@ -153,20 +150,20 @@ export const SettingsView: React.FC = () => {
   };
 
   const renderStakeholderSection = (title: string, type: 'client' | 'consultant' | 'control') => (
-      <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
-          <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wide">{title} (Organisme)</label>
+      <div className="bg-blue-50/50 dark:bg-slate-800/50 p-4 rounded-lg border border-blue-100 dark:border-slate-700">
+          <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 uppercase tracking-wide">{title} (Organisme)</label>
           <input 
               value={settings.stakeholders[type].name}
               onChange={(e) => handleStakeholderNameChange(type, e.target.value)}
-              className="w-full p-2 border border-blue-200 bg-blue-50 rounded focus:ring-2 focus:ring-blue-500 outline-none mb-3 font-medium text-gray-900"
+              className="w-full p-2 border border-blue-200 dark:border-slate-600 bg-blue-50 dark:bg-slate-800 rounded focus:ring-2 focus:ring-blue-500 outline-none mb-3 font-medium text-gray-900 dark:text-white"
               placeholder={`Nom du ${title}`}
           />
           
-          <label className="block text-xs font-bold text-gray-700 mb-2">Responsables / Contacts</label>
+          <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">Responsables / Contacts</label>
           <div className="space-y-2 mb-2">
               {settings.stakeholders[type].contacts.map((contact, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-white border border-blue-100 px-3 py-1.5 rounded text-sm">
-                      <span className="flex-1 text-gray-700">{contact}</span>
+                  <div key={idx} className="flex items-center gap-2 bg-white dark:bg-slate-700 border border-blue-100 dark:border-slate-600 px-3 py-1.5 rounded text-sm">
+                      <span className="flex-1 text-gray-700 dark:text-gray-200">{contact}</span>
                       <button onClick={() => removeContact(type, idx)} className="text-red-400 hover:text-red-600">
                           <X size={14} />
                       </button>
@@ -177,7 +174,7 @@ export const SettingsView: React.FC = () => {
               <input 
                   value={newContacts[type]}
                   onChange={(e) => setNewContacts({...newContacts, [type]: e.target.value})}
-                  className="flex-1 p-2 border border-blue-200 bg-white rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  className="flex-1 p-2 border border-blue-200 dark:border-slate-600 bg-white dark:bg-slate-900 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm dark:text-white"
                   placeholder="Ajouter un nom..."
                   onKeyDown={(e) => e.key === 'Enter' && addContact(type)}
               />
@@ -189,27 +186,43 @@ export const SettingsView: React.FC = () => {
   );
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-10">
-        <div className="p-6 border-b border-gray-200 bg-slate-50">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <Building className="text-blue-600" />
-                Paramètres de l'Application
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">Configurez les informations globales, le logo et les interlocuteurs.</p>
+    <div className="max-w-4xl mx-auto bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden mb-10 transition-colors">
+        <div className="p-6 border-b border-gray-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                        <Building className="text-blue-600" />
+                        Paramètres de l'Application
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configurez les informations globales, le logo et les interlocuteurs.</p>
+                </div>
+                {/* Dark Mode Toggle */}
+                {toggleTheme && (
+                    <button 
+                        onClick={toggleTheme}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm border transition-all ${isDarkMode 
+                            ? 'bg-slate-800 text-yellow-400 border-slate-600 hover:bg-slate-700' 
+                            : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'}`}
+                    >
+                        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+                        {isDarkMode ? 'Mode Clair' : 'Mode Sombre'}
+                    </button>
+                )}
+            </div>
         </div>
         
         <div className="p-8 space-y-8">
 
             {/* Section Google Sheet */}
-            <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-xl">
-                <h3 className="text-lg font-semibold text-emerald-800 flex items-center gap-2 mb-4">
+            <div className="bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/30 p-6 rounded-xl">
+                <h3 className="text-lg font-semibold text-emerald-800 dark:text-emerald-400 flex items-center gap-2 mb-4">
                     <Database size={20} />
                     Base de Données Google Sheets
                 </h3>
                 
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-emerald-900 mb-1">URL de l'API Google Apps Script</label>
+                        <label className="block text-sm font-medium text-emerald-900 dark:text-emerald-300 mb-1">URL de l'API Google Apps Script</label>
                         <div className="flex gap-2">
                             <Link className="text-emerald-500 shrink-0 mt-2.5" size={16} />
                             <input 
@@ -217,12 +230,9 @@ export const SettingsView: React.FC = () => {
                                 value={settings.googleScriptUrl} 
                                 onChange={handleChange} 
                                 placeholder="https://script.google.com/macros/s/.../exec"
-                                className="w-full p-2 border border-emerald-300 rounded focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm" 
+                                className="w-full p-2 border border-emerald-300 dark:border-emerald-800 bg-white dark:bg-slate-800 rounded focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm dark:text-white" 
                             />
                         </div>
-                        <p className="text-xs text-emerald-600 mt-2">
-                            Assurez-vous que l'URL se termine par <b>/exec</b> et que le déploiement est en <b>accès public</b> (Anyone).
-                        </p>
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -238,36 +248,22 @@ export const SettingsView: React.FC = () => {
                             {testStatus === 'testing' ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}
                             {testStatus === 'success' ? 'Connexion Réussie !' : testStatus === 'error' ? 'Échec Connexion' : 'Tester la Connexion'}
                         </button>
-                        
-                        {testStatus === 'success' && <span className="text-green-600 flex items-center gap-1 text-sm"><CheckCircle2 size={16}/> Synchronisation OK</span>}
-                        {testStatus === 'error' && <span className="text-red-600 flex items-center gap-1 text-sm"><XCircle size={16}/> Vérifiez l'URL ou les droits</span>}
-                    </div>
-
-                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
-                        <div className="flex items-start gap-2">
-                            <AlertTriangle className="text-yellow-500 shrink-0 mt-0.5" size={16} />
-                            <div className="text-xs text-yellow-800">
-                                <p className="font-bold mb-1">Limitation Technique :</p>
-                                <p>Les fichiers joints (PDF/Images) ne sont pas envoyés vers Google Sheets car ils dépassent la limite de taille des cellules.</p>
-                                <p className="mt-1">Seules les métadonnées (Noms, Codes, Dates, Statuts) sont synchronisées.</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
             
             {/* Section Logo */}
             <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-gray-700 flex items-center gap-2">
+                <h3 className="text-lg font-semibold border-b dark:border-slate-700 pb-2 text-gray-700 dark:text-gray-200 flex items-center gap-2">
                     <ImageIcon size={20} />
                     Logo de l'Entreprise
                 </h3>
                 <div className="flex items-start gap-6">
-                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden relative group shrink-0">
+                    <div className="w-32 h-32 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-lg flex items-center justify-center bg-gray-50 dark:bg-slate-800 overflow-hidden relative group shrink-0">
                         {settings.logo ? (
                             <img src={settings.logo} alt="Logo" className="w-full h-full object-contain p-2" />
                         ) : (
-                            <Logo className="w-16 h-16 text-gray-300" />
+                            <Logo className="w-16 h-16 text-gray-300 dark:text-slate-600" />
                         )}
                         {settings.logo && (
                             <button 
@@ -281,7 +277,7 @@ export const SettingsView: React.FC = () => {
                     <div className="space-y-3 flex flex-col items-start">
                         <button 
                             onClick={() => fileInputRef.current?.click()}
-                            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors text-sm font-medium"
+                            className="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-sm font-medium"
                         >
                             <Upload size={16} />
                             Importer un logo
@@ -293,7 +289,7 @@ export const SettingsView: React.FC = () => {
                             className="hidden" 
                             onChange={handleLogoUpload}
                         />
-                        <p className="text-xs text-gray-500">Format recommandé : PNG ou JPG (Max 500KB).<br/>Ce logo apparaîtra sur tous les exports PDF.</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Format recommandé : PNG ou JPG (Max 500KB).</p>
                         
                         {settings.logo && (
                             <button 
@@ -310,47 +306,47 @@ export const SettingsView: React.FC = () => {
 
             {/* Section Entreprise */}
             <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-gray-700">Informations Entreprise</h3>
+                <h3 className="text-lg font-semibold border-b dark:border-slate-700 pb-2 text-gray-700 dark:text-gray-200">Informations Entreprise</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom de la Société</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Nom de la Société</label>
                         <input 
                             name="companyName" 
                             value={settings.companyName} 
                             onChange={handleChange} 
-                            className="w-full p-2 border border-blue-200 bg-[#ADD8E6] rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                            className="w-full p-2 border border-blue-200 dark:border-slate-600 bg-[#ADD8E6] dark:bg-slate-800 dark:text-white rounded focus:ring-2 focus:ring-blue-500 outline-none" 
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Sous-titre / Activité</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Sous-titre / Activité</label>
                         <input 
                             name="companySubtitle" 
                             value={settings.companySubtitle} 
                             onChange={handleChange} 
-                            className="w-full p-2 border border-blue-200 bg-[#ADD8E6] rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                            className="w-full p-2 border border-blue-200 dark:border-slate-600 bg-[#ADD8E6] dark:bg-slate-800 dark:text-white rounded focus:ring-2 focus:ring-blue-500 outline-none" 
                         />
                     </div>
                     <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Adresse</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Adresse</label>
                         <div className="flex items-center gap-2">
                             <MapPin size={16} className="text-gray-400" />
                             <input 
                                 name="address" 
                                 value={settings.address} 
                                 onChange={handleChange} 
-                                className="w-full p-2 border border-blue-200 bg-[#ADD8E6] rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                                className="w-full p-2 border border-blue-200 dark:border-slate-600 bg-[#ADD8E6] dark:bg-slate-800 dark:text-white rounded focus:ring-2 focus:ring-blue-500 outline-none" 
                             />
                         </div>
                     </div>
                     <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Contact (Tél/Fax/Email)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Contact (Tél/Fax/Email)</label>
                         <div className="flex items-center gap-2">
                             <Phone size={16} className="text-gray-400" />
                             <input 
                                 name="contact" 
                                 value={settings.contact} 
                                 onChange={handleChange} 
-                                className="w-full p-2 border border-blue-200 bg-[#ADD8E6] rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                                className="w-full p-2 border border-blue-200 dark:border-slate-600 bg-[#ADD8E6] dark:bg-slate-800 dark:text-white rounded focus:ring-2 focus:ring-blue-500 outline-none" 
                             />
                         </div>
                     </div>
@@ -359,11 +355,10 @@ export const SettingsView: React.FC = () => {
 
             {/* Section Intervenants */}
             <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-gray-700 flex items-center gap-2">
+                <h3 className="text-lg font-semibold border-b dark:border-slate-700 pb-2 text-gray-700 dark:text-gray-200 flex items-center gap-2">
                     <Users size={20} />
                     Intervenants & Responsables
                 </h3>
-                <p className="text-xs text-gray-500 italic mb-2">Ces informations alimentent les listes déroulantes du Bordereau d'Envoi.</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {renderStakeholderSection('Client (M.O)', 'client')}
                     {renderStakeholderSection('Consultant / Architecte', 'consultant')}
@@ -373,27 +368,27 @@ export const SettingsView: React.FC = () => {
 
             {/* Section Projet */}
             <div className="space-y-4">
-                <h3 className="text-lg font-semibold border-b pb-2 text-gray-700 flex items-center gap-2">
+                <h3 className="text-lg font-semibold border-b dark:border-slate-700 pb-2 text-gray-700 dark:text-gray-200 flex items-center gap-2">
                     <FileText size={20} />
                     Informations Projet
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom du Projet</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Nom du Projet</label>
                         <input 
                             name="projectName" 
                             value={settings.projectName} 
                             onChange={handleChange} 
-                            className="w-full p-2 border border-blue-200 bg-[#ADD8E6] rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                            className="w-full p-2 border border-blue-200 dark:border-slate-600 bg-[#ADD8E6] dark:bg-slate-800 dark:text-white rounded focus:ring-2 focus:ring-blue-500 outline-none" 
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Code Projet</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Code Projet</label>
                         <input 
                             name="projectCode" 
                             value={settings.projectCode} 
                             onChange={handleChange} 
-                            className="w-full p-2 border border-blue-200 bg-[#ADD8E6] rounded focus:ring-2 focus:ring-blue-500 outline-none" 
+                            className="w-full p-2 border border-blue-200 dark:border-slate-600 bg-[#ADD8E6] dark:bg-slate-800 dark:text-white rounded focus:ring-2 focus:ring-blue-500 outline-none" 
                         />
                     </div>
                 </div>
