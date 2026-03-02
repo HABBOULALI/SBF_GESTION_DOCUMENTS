@@ -146,7 +146,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onNavigateToDoc
           />
 
           <StatCard 
-            title="En cours" 
+            title="En cours de révision" 
             value={stats.pending} 
             total={stats.total} 
             icon={Clock} 
@@ -155,7 +155,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onNavigateToDoc
           />
 
           <StatCard 
-            title="Rejeté" 
+            title="Non Approuvé" 
             value={stats.rejected} 
             total={stats.total} 
             icon={XCircle} 
@@ -231,7 +231,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ documents, onNavigateToDoc
                                                 : 'bg-red-600 text-white animate-pulse shadow-md'
                                         }`}>
                                             {status === ApprovalStatus.PENDING ? <Clock size={10} /> : <AlertTriangle size={10} />}
-                                            {status === ApprovalStatus.PENDING ? 'En cours' : 'Sans Réponse'}
+                                            {status === ApprovalStatus.PENDING ? 'En cours de révision' : 'Sans Réponse'}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
