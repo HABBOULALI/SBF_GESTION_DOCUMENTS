@@ -654,11 +654,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
                       onChange={(e) => setFilter(e.target.value as any)}
                     >
                       <option value="ALL">Tous les statuts</option>
-                      <option value={ApprovalStatus.PENDING}>En cours</option>
+                      <option value={ApprovalStatus.PENDING}>En cours de révision</option>
                       <option value={ApprovalStatus.APPROVED}>Approuvé</option>
-                      <option value={ApprovalStatus.APPROVED_WITH_COMMENTS}>Approuvé (R)</option>
-                      <option value={ApprovalStatus.REJECTED}>Rejeté</option>
-                      <option value={ApprovalStatus.NO_RESPONSE}>Sans réponse</option>
+                      <option value={ApprovalStatus.APPROVED_WITH_COMMENTS}>Approuvé avec réserves</option>
+                      <option value={ApprovalStatus.REJECTED}>Non Approuvé</option>
+                      <option value={ApprovalStatus.NO_RESPONSE}>Sans Réponse</option>
                     </select>
                     <Filter size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 </div>
@@ -827,9 +827,9 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
                            {
                              rev.status === ApprovalStatus.APPROVED ? "Approuvé" :
                              rev.status === ApprovalStatus.REJECTED ? "Non Approuvé" :
-                             rev.status === ApprovalStatus.NO_RESPONSE ? "Sans réponse" :
+                             rev.status === ApprovalStatus.NO_RESPONSE ? "Sans Réponse" :
                              rev.status === ApprovalStatus.PENDING ? "En cours de révision" :
-                             rev.status === ApprovalStatus.APPROVED_WITH_COMMENTS ? "Approuvé (R)" :
+                             rev.status === ApprovalStatus.APPROVED_WITH_COMMENTS ? "Approuvé avec réserves" :
                              rev.status
                            }
                         </span>
