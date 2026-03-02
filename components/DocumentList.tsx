@@ -933,9 +933,95 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents, onAddDocu
                               <input required value={newName} onChange={e => setNewName(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900 text-gray-900 dark:text-white" placeholder="Plan de ferraillage..." />
                           </div>
                       </div>
+                      <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm space-y-4">
+                          <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">Détails Envoi & Statut</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Indice</label>
+                                  <input required value={newIndex} onChange={e => setNewIndex(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900 text-gray-900 dark:text-white" placeholder="00" />
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Date Envoi</label>
+                                  <input type="date" required value={newTransmittalDate} onChange={e => setNewTransmittalDate(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900 text-gray-900 dark:text-white" />
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Réf Envoi</label>
+                                  <input value={newTransmittalRef} onChange={e => setNewTransmittalRef(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900 text-gray-900 dark:text-white" placeholder="B-001" />
+                              </div>
+                          </div>
+                          
+                          <div>
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Fichiers Bordereau (Max 3)</label>
+                              <div className="flex flex-wrap gap-2">
+                                  {newTransmittalFiles.map((file, idx) => (
+                                      <div key={idx} className="relative group">
+                                          <div className="w-16 h-16 bg-gray-100 dark:bg-slate-700 rounded border border-gray-200 dark:border-slate-600 flex items-center justify-center text-gray-400 dark:text-slate-500">
+                                              <FileText size={24} />
+                                          </div>
+                                          <button type="button" onClick={() => setNewTransmittalFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <X size={12} />
+                                          </button>
+                                      </div>
+                                  ))}
+                                  {newTransmittalFiles.length < 3 && (
+                                      <label className="w-16 h-16 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
+                                          <Plus size={20} className="text-gray-400 dark:text-slate-500" />
+                                          <input type="file" className="hidden" accept=".pdf,.jpg,.png" onChange={(e) => handleModalFileChange(e, 'transmittal')} />
+                                      </label>
+                                  )}
+                              </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-gray-100 dark:border-slate-700">
+                              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Statut Actuel</label>
+                              <select value={newStatus} onChange={e => setNewStatus(e.target.value as any)} className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900 text-gray-900 dark:text-white font-medium">
+                                  <option value={ApprovalStatus.PENDING}>En cours de révision</option>
+                                  <option value={ApprovalStatus.APPROVED}>Approuvé</option>
+                                  <option value={ApprovalStatus.APPROVED_WITH_COMMENTS}>Approuvé avec réserves</option>
+                                  <option value={ApprovalStatus.REJECTED}>Non Approuvé</option>
+                                  <option value={ApprovalStatus.NO_RESPONSE}>Sans Réponse</option>
+                              </select>
+                          </div>
+                      </div>
+
+                      {(newStatus !== ApprovalStatus.PENDING && newStatus !== ApprovalStatus.NO_RESPONSE) && (
+                          <div className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm space-y-4 animate-in slide-in-from-top-2">
+                              <h4 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">Retour & Observations</h4>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Date Réponse</label>
+                                      <input type="date" value={newObservationDate} onChange={e => setNewObservationDate(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900 text-gray-900 dark:text-white" />
+                                  </div>
+                                  <div>
+                                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Réf Réponse</label>
+                                      <input value={newObservationRef} onChange={e => setNewObservationRef(e.target.value)} className="w-full p-2 border border-gray-300 dark:border-slate-600 rounded focus:ring-2 focus:ring-blue-500 outline-none bg-white dark:bg-slate-900 text-gray-900 dark:text-white" placeholder="VISA-001" />
+                                  </div>
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Fichiers Observations (Max 3)</label>
+                                  <div className="flex flex-wrap gap-2">
+                                      {newObservationFiles.map((file, idx) => (
+                                          <div key={idx} className="relative group">
+                                              <div className="w-16 h-16 bg-gray-100 dark:bg-slate-700 rounded border border-gray-200 dark:border-slate-600 flex items-center justify-center text-gray-400 dark:text-slate-500">
+                                                  <FileText size={24} />
+                                              </div>
+                                              <button type="button" onClick={() => setNewObservationFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                  <X size={12} />
+                                              </button>
+                                          </div>
+                                      ))}
+                                      {newObservationFiles.length < 3 && (
+                                          <label className="w-16 h-16 border-2 border-dashed border-gray-300 dark:border-slate-600 rounded flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 transition-colors">
+                                              <Plus size={20} className="text-gray-400 dark:text-slate-500" />
+                                              <input type="file" className="hidden" accept=".pdf,.jpg,.png" onChange={(e) => handleModalFileChange(e, 'observation')} />
+                                          </label>
+                                      )}
+                                  </div>
+                              </div>
+                          </div>
+                      )}
                       
-                      {/* ... Rest of modal logic remains identical but applied similar classes ... */}
-                       <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+                      <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
                           <button type="button" onClick={closeAllModals} className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg font-medium">Annuler</button>
                           <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-sm flex items-center gap-2">
                               <Save size={18} /> Enregistrer
